@@ -235,6 +235,7 @@ BuildHobFromBl (
   EFI_PEI_GRAPHICS_DEVICE_INFO_HOB GfxDeviceInfo;
   EFI_PEI_GRAPHICS_DEVICE_INFO_HOB *NewGfxDeviceInfo;
   PLD_SMBIOS_TABLE_HOB             *SmBiosTableAdress;
+  PLD_ACPI_TABLE_HOB               *AcpiTableAdress;
 
   //
   // Parse memory info and build memory HOBs
@@ -284,6 +285,14 @@ BuildHobFromBl (
   ASSERT (SmBiosTableAdress != NULL);
   SmBiosTableAdress->SmBiosTableAddress = SysTableInfo.SmbiosTableBase;
   DEBUG ((DEBUG_INFO, "Create smbios table gPldSmbiosTableGuid guid hob\n"));
+
+  // 
+  // Creat ACPI table Hob
+  //
+  AcpiTableAdress = BuildGuidHob (&gPldAcpiTableGuid, sizeof (PLD_ACPI_TABLE_HOB));
+  ASSERT (AcpiTableAdress != NULL);
+  AcpiTableAdress->Rsdp = SysTableInfo.AcpiTableBase;
+  DEBUG ((DEBUG_INFO, "Create smbios table gPldAcpiTableGuid guid hob\n"));
 
   //
   // Create guid hob for acpi board information
