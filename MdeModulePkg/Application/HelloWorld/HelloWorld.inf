@@ -35,11 +35,13 @@
 
 [Sources]
   HelloWorld.c
+  snake.c
   HelloWorldStr.uni
 
 [Packages]
   MdePkg/MdePkg.dec
   MdeModulePkg/MdeModulePkg.dec
+  CryptoPkg/CryptoPkg.dec
 
 [LibraryClasses]
   UefiApplicationEntryPoint
@@ -50,6 +52,8 @@
   DebugLib
   PciLib
   IoLib
+  BaseCryptLib
+  UefiRuntimeServicesTableLib
 
 [FeaturePcd]
   gEfiMdeModulePkgTokenSpaceGuid.PcdHelloWorldPrintEnable   ## CONSUMES
