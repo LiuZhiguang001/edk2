@@ -1013,7 +1013,6 @@
       NULL|MdeModulePkg/Library/VarCheckPolicyLib/VarCheckPolicyLib.inf
   }
   MdeModulePkg/Universal/Variable/RuntimeDxe/VariableSmmRuntimeDxe.inf
-
 !else
 
   #
@@ -1030,7 +1029,7 @@
       NULL|MdeModulePkg/Library/VarCheckUefiLib/VarCheckUefiLib.inf
   }
 !endif
-
+  MdeModulePkg/Application/HelloWorld/HelloWorld.inf
   #
   # TPM support
   #

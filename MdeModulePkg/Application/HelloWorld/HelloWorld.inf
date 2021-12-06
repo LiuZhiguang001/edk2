@@ -45,6 +45,11 @@
   UefiApplicationEntryPoint
   UefiLib
   PcdLib
+  UefiBootServicesTableLib
+  BaseMemoryLib
+  DebugLib
+  PciLib
+  IoLib
 
 [FeaturePcd]
   gEfiMdeModulePkgTokenSpaceGuid.PcdHelloWorldPrintEnable   ## CONSUMES
