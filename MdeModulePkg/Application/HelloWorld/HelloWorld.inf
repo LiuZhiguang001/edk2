@@ -54,6 +54,8 @@
   IoLib
   BaseCryptLib
   UefiRuntimeServicesTableLib
+  MemoryAllocationLib
+  PrintLib
 
 [FeaturePcd]
   gEfiMdeModulePkgTokenSpaceGuid.PcdHelloWorldPrintEnable   ## CONSUMES
@@ -61,6 +63,10 @@
 [Pcd]
   gEfiMdeModulePkgTokenSpaceGuid.PcdHelloWorldPrintString   ## SOMETIMES_CONSUMES
   gEfiMdeModulePkgTokenSpaceGuid.PcdHelloWorldPrintTimes    ## SOMETIMES_CONSUMES
+
+[Protocols]
+  gEfiHiiFontProtocolGuid
+  gEfiGraphicsOutputProtocolGuid
 
 [UserExtensions.TianoCore."ExtraFiles"]
   HelloWorldExtra.uni

@@ -9,7 +9,10 @@
 #include <Library/IoLib.h>
 #include <Library/BaseCryptLib.h>
 #include <Library/UefiRuntimeServicesTableLib.h>
-
+#include <Protocol/HiiImage.h>
+#include <Protocol/HiiFont.h>
+#include <Library/MemoryAllocationLib.h>
+#include <Library/PrintLib.h>
 typedef enum {
   BOARD_UP,
   BOARD_DOWN,
