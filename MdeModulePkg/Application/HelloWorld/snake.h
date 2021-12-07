@@ -50,6 +50,7 @@ typedef struct {
   UINTN                                 StringStartX;
   UINTN                                 StringStartY;
   CHAR16                                *StringBuffer;
+  BOOLEAN                               *BlockOccupied;
 } BLT_BUFFER_INFO;
 
 typedef struct {

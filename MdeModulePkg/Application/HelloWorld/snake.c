@@ -233,6 +233,8 @@ Initialization (
   BltBufferInfo->GameSizeY = BltBufferInfo->BlockdYSize/10*8;
   BltBufferInfo->GameStartX = BltBufferInfo->BlockdYSize/10;
   BltBufferInfo->GameStartY = BltBufferInfo->BlockdYSize/10;
+
+  BltBufferInfo->BlockOccupied = AllocateZeroPool (BltBufferInfo->GameSizeY * BltBufferInfo->GameSizeX * sizeof(BOOLEAN));
   
   BltBufferInfo->StringBlt = (EFI_IMAGE_OUTPUT *) AllocateZeroPool (sizeof (EFI_IMAGE_OUTPUT));
   BltBufferInfo->StringStartX = (BltBufferInfo->GameStartX + BltBufferInfo->GameSizeX + 1) * BLOCK_SIZE + 30;
@@ -347,25 +349,24 @@ GenerateFood (
   UINTN             GoalIndex;
   UINTN             Index;
   SNAKE_POINT       Food;
-  BOOLEAN           InSnake;
+
+  ZeroMem(BltBufferInfo->BlockOccupied, BltBufferInfo->GameSizeX * BltBufferInfo->GameSizeY);
   RandomBytes ((UINT8 *)&RandValue, sizeof(UINTN));
   EmptySize = BltBufferInfo->GameSizeX * BltBufferInfo->GameSizeY - SnakeInfo->SnakeLength;
   GoalIndex = RandValue % EmptySize;
   Food.X = 0;
   Food.Y = 0;
   CurrentIndex = 0;
+
+  for (Index = 0; Index < SnakeInfo->SnakeLength; Index++) {
+    CurrentIndex = (SnakeInfo->SnakeArry + Index)->X + (SnakeInfo->SnakeArry + Index)->Y * BltBufferInfo->GameSizeX;
+    *(BltBufferInfo->BlockOccupied + CurrentIndex) = TRUE;
+  }
+  CurrentIndex = 0;
   while (TRUE) {
-    InSnake = FALSE;
-    while (InSnake)
+    while (*(BltBufferInfo->BlockOccupied + CurrentIndex))
     {
-      for (Index = 0; Index < SnakeInfo->SnakeLength; Index++) {
-        if (CurrentIndex == (SnakeInfo->SnakeArry + Index)->X + (SnakeInfo->SnakeArry + Index)->Y * BltBufferInfo->GameSizeX) {
-          InSnake = TRUE;
-        }
-      }
-      if (InSnake) {
-        CurrentIndex++;
-      }
+      CurrentIndex++;
     }
     if (GoalIndex == 0) {
       break;
