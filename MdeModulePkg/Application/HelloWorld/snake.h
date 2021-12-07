@@ -36,6 +36,7 @@ typedef enum {
 
 typedef struct {
   EFI_GRAPHICS_OUTPUT_PROTOCOL          *GraphicsInterface;
+  EFI_HII_FONT_PROTOCOL                 *HiiFont;
   EFI_GRAPHICS_OUTPUT_BLT_PIXEL         *BltBuffer;
   UINTN                                 GroundXSize;
   UINTN                                 GroundYSize;
@@ -45,6 +46,10 @@ typedef struct {
   UINTN                                 GameSizeY;
   UINTN                                 GameStartX;
   UINTN                                 GameStartY;
+  EFI_IMAGE_OUTPUT                      *StringBlt;
+  UINTN                                 StringStartX;
+  UINTN                                 StringStartY;
+  CHAR16                                *StringBuffer;
 } BLT_BUFFER_INFO;
 
 typedef struct {

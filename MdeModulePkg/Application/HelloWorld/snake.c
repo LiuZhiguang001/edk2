@@ -2,10 +2,9 @@
 
 #define BLOCK_SIZE 20
 #define WAIT_TIME  5000
+#define STRING_MAX_SIZE 200
 
-//EFI_GRAPHICS_OUTPUT_BLT_PIXEL BackPixel = {
-//  0x69, 0x69, 0x69, 0
-//};
+CONST CHAR16 *StringTemplate = L"    Score:\n    %05d\n\n\nPress q to quit\nPress e to play\n wasd to control";
 
 EFI_GRAPHICS_OUTPUT_BLT_PIXEL BackPixel = {
   0x0, 0x0, 0x0, 0
@@ -155,8 +154,6 @@ Flush (
 {
   EFI_GRAPHICS_OUTPUT_PROTOCOL          *GraphicsInterface;
   GraphicsInterface = BltBufferInfo->GraphicsInterface;
-  
-
   GraphicsInterface->Blt(
     GraphicsInterface,
     BltBufferInfo->BltBuffer,
@@ -165,7 +162,7 @@ Flush (
 }
 
 VOID
-StringOnScreen (
+PaintStringOnScreen (
   BLT_BUFFER_INFO   *BltBufferInfo,
   SNAKE_INFO        *SnakeInfo
   )
@@ -173,67 +170,54 @@ StringOnScreen (
   EFI_IMAGE_OUTPUT                    *Blt;
   EFI_STATUS                          Status;
   EFI_HII_FONT_PROTOCOL               *HiiFont;
-  EFI_FONT_DISPLAY_INFO               FontInfo;
-  UINTN                               StartX;
-  UINTN                               StartY;
   UINTN                               Index1;
   UINTN                               Index2;
-  CHAR16                              *StringBuffer;
-  StartX = (BltBufferInfo->GameStartX + BltBufferInfo->GameSizeX + 1) * BLOCK_SIZE + 30;
-  StartY = (BltBufferInfo->GameSizeX/2) * BLOCK_SIZE - 100;
-  CopyMem (&FontInfo.ForegroundColor, &FoodPixel, sizeof (EFI_GRAPHICS_OUTPUT_BLT_PIXEL));
-  CopyMem (&FontInfo.BackgroundColor, &BackPixel, sizeof (EFI_GRAPHICS_OUTPUT_BLT_PIXEL));
-  FontInfo.FontInfo.FontSize = 19;
-  FontInfo.FontInfoMask |= EFI_FONT_INFO_RESIZE;
-  Blt                   = NULL;
-  Blt = (EFI_IMAGE_OUTPUT *) AllocateZeroPool (sizeof (EFI_IMAGE_OUTPUT));
 
-  Blt->Width        = (UINT16) (BltBufferInfo->GroundXSize - StartX);
-  Blt->Height       = (UINT16) (BltBufferInfo->GroundYSize - StartY);
-  Blt->Image.Bitmap = AllocateZeroPool ((UINT32) Blt->Width * Blt->Height * sizeof (EFI_GRAPHICS_OUTPUT_BLT_PIXEL));
-  Status = gBS->LocateProtocol (&gEfiHiiFontProtocolGuid, NULL, (VOID **) &HiiFont);
+  Blt     = BltBufferInfo->StringBlt;
+  HiiFont = BltBufferInfo->HiiFont;
   
-  DEBUG ((DEBUG_ERROR, "kuang %a: %d %d\n", __FILE__, __LINE__, Status));
-  StringBuffer = NULL;
-  StringBuffer = AllocateZeroPool ((UINT32) 200);
+  ZeroMem(Blt->Image.Bitmap,  Blt->Width * Blt->Height * sizeof (EFI_GRAPHICS_OUTPUT_BLT_PIXEL));
+  ZeroMem(BltBufferInfo->StringBuffer, STRING_MAX_SIZE);
+
   UnicodeSPrint (
-    StringBuffer,
-    200,
-    L"    Score:\n    %05d\nPress Q to quit\nPress E to play\n wasd to control",
+    BltBufferInfo->StringBuffer,
+    STRING_MAX_SIZE,
+    StringTemplate,
     SnakeInfo->SnakeLength
     );
-
   Status = HiiFont->StringToImage (
                         HiiFont,
                         EFI_HII_IGNORE_IF_NO_GLYPH,
-                        StringBuffer,
-                        &FontInfo, &Blt, 0, 0, NULL, NULL, NULL
+                        BltBufferInfo->StringBuffer,
+                        NULL, &Blt, 0, 0, NULL, NULL, NULL
                         );
-  DEBUG ((DEBUG_ERROR, "kuang %a: %d %d\n", __FILE__, __LINE__, Status));
+
   for (Index1 = 0; Index1 < Blt->Width; Index1++){
     for (Index2 = 0; Index2 < Blt->Height; Index2++){
       CopyMem(
-        BltBufferInfo->BltBuffer + Index1 + StartX + (Index2 + StartY) * BltBufferInfo->GroundXSize,
+        BltBufferInfo->BltBuffer + Index1 + BltBufferInfo->StringStartX + (Index2 + BltBufferInfo->StringStartY) * BltBufferInfo->GroundXSize,
         Blt->Image.Bitmap + Index1 + Index2 * Blt->Width,
         sizeof (EFI_GRAPHICS_OUTPUT_BLT_PIXEL)
       );
     }
   }
-  FreePool(Blt->Image.Bitmap);
-  FreePool(StringBuffer);
 }
 
 EFI_STATUS
 EFIAPI
-InitWindows (
-  BLT_BUFFER_INFO   *BltBufferInfo
+Initialization (
+  BLT_BUFFER_INFO   *BltBufferInfo,
+  SNAKE_INFO        *SnakeInfo
   ) 
 {
   EFI_GRAPHICS_OUTPUT_PROTOCOL          *GraphicsInterface;
   EFI_GRAPHICS_OUTPUT_BLT_PIXEL         *BltBuffer;
   EFI_GRAPHICS_OUTPUT_MODE_INFORMATION  *Info;
   UINTN                                 SizeOfInfo;
-    
+  EFI_TIME                              TheTime;
+  gRT->SetTime(&TheTime);
+  RandomSeed ((UINT8 *)&TheTime, sizeof (TheTime));
+
   gBS->LocateProtocol(&gEfiGraphicsOutputProtocolGuid, NULL, (void**)&GraphicsInterface);
   GraphicsInterface->QueryMode(GraphicsInterface, GraphicsInterface->Mode->Mode, &SizeOfInfo, &Info);
   BltBufferInfo->GroundXSize = Info->HorizontalResolution;
@@ -253,10 +237,36 @@ InitWindows (
   BltBufferInfo->GameSizeY = BltBufferInfo->BlockdYSize/10*8;
   BltBufferInfo->GameStartX = BltBufferInfo->BlockdYSize/10;
   BltBufferInfo->GameStartY = BltBufferInfo->BlockdYSize/10;
+  
+  BltBufferInfo->StringBlt = (EFI_IMAGE_OUTPUT *) AllocateZeroPool (sizeof (EFI_IMAGE_OUTPUT));
+  BltBufferInfo->StringStartX = (BltBufferInfo->GameStartX + BltBufferInfo->GameSizeX + 1) * BLOCK_SIZE + 30;
+  BltBufferInfo->StringStartY = (BltBufferInfo->GameSizeX/2) * BLOCK_SIZE - 100;
+  BltBufferInfo->StringBlt->Width        = (UINT16) (BltBufferInfo->GroundXSize - BltBufferInfo->StringStartX);
+  BltBufferInfo->StringBlt->Height       = (UINT16) (BltBufferInfo->GroundYSize - BltBufferInfo->StringStartY);
+  BltBufferInfo->StringBlt->Image.Bitmap = AllocateZeroPool ((UINT32) BltBufferInfo->StringBlt->Width * BltBufferInfo->StringBlt->Height * sizeof (EFI_GRAPHICS_OUTPUT_BLT_PIXEL));
+  BltBufferInfo->StringBuffer = AllocateZeroPool ((UINT32) 200);
+  gBS->LocateProtocol (&gEfiHiiFontProtocolGuid, NULL, (VOID **) &(BltBufferInfo->HiiFont));
 
-
-
+  gBS->AllocatePages(AllocateAnyPages, EfiBootServicesData, EFI_SIZE_TO_PAGES(sizeof(SNAKE_POINT) * BltBufferInfo->GameSizeX * BltBufferInfo->GameSizeY + 1), (EFI_PHYSICAL_ADDRESS *)&SnakeInfo->SnakeArry);
   return EFI_SUCCESS;
+}
+
+
+VOID
+InitSnake (
+  BLT_BUFFER_INFO   *BltBufferInfo,
+  SNAKE_INFO        *SnakeInfo
+  ) 
+{
+  UINTN  Index;
+  ZeroMem (SnakeInfo->SnakeArry, sizeof(SNAKE_POINT) * BltBufferInfo->GameSizeX * BltBufferInfo->GameSizeY + 1);
+  SnakeInfo->SnakeLength = 5;
+  for (Index = 0; Index < SnakeInfo->SnakeLength; Index++) {
+    (SnakeInfo->SnakeArry + Index)->X = BltBufferInfo->GameSizeX/2;
+    (SnakeInfo->SnakeArry + Index)->Y = BltBufferInfo->GameSizeY/2 - 2 + Index;
+  }
+  SnakeInfo->SnakeOrientaion = SNAKE_UP;
+  SnakeInfo->SnakeBackOrientaion = SNAKE_DOWN;
 }
 
 BOOLEAN
@@ -389,12 +399,12 @@ SnakeRun (
   UINTN             Index;
   SNAKE_POINT       Food;
   BOOLEAN           NeedMoreFood;
-  
   BOOLEAN           GameOver;
+
   GameOver     = FALSE;
   Index        = 0;
   NeedMoreFood = TRUE;
-  Food = GenerateFood (BltBufferInfo,SnakeInfo);
+  Food = GenerateFood (BltBufferInfo, SnakeInfo);
   PaintBlock (
     BltBufferInfo,
     BltBufferInfo->GameStartX + Food.X,
@@ -402,7 +412,6 @@ SnakeRun (
     &FoodPixel
   );
   Flush(BltBufferInfo);
-
   while (TRUE) {
     gBS->Stall(WAIT_TIME);
     Status = gST->ConIn->ReadKeyStroke (gST->ConIn, &Key);
@@ -453,8 +462,8 @@ SnakeRun (
       }
       if (NeedMoreFood) { 
         Food = GenerateFood (BltBufferInfo,SnakeInfo);
+        PaintStringOnScreen (BltBufferInfo, SnakeInfo);
       }
-
       PaintBlock (
         BltBufferInfo,
         BltBufferInfo->GameStartX + Food.X,
@@ -468,50 +477,32 @@ SnakeRun (
   }
 }
 
-
-
 VOID
 SnakeMain (
   VOID
   )
 {
-
   EFI_STATUS        Status;
   EFI_INPUT_KEY     Key;
   UINTN             EventIndex;
   BLT_BUFFER_INFO   BltBufferInfo;
   SNAKE_INFO        SnakeInfo;
-  UINTN             Index;
-  EFI_TIME          TheTime;
   BOOLEAN           NewGame;
   SNAKE_STATUS      SnakeStatus;
 
-
-  gRT->SetTime(&TheTime);
-  RandomSeed ((UINT8 *)&TheTime, sizeof (TheTime));
-  InitWindows (&BltBufferInfo);
-  gBS->AllocatePages(AllocateAnyPages, EfiBootServicesData, EFI_SIZE_TO_PAGES(sizeof(SNAKE_POINT) * BltBufferInfo.GameSizeX * BltBufferInfo.GameSizeY + 1), (EFI_PHYSICAL_ADDRESS *)&SnakeInfo.SnakeArry);
+  SnakeStatus = SNAKE_GOOD;
+  Initialization (&BltBufferInfo, &SnakeInfo);
+  
   while (TRUE) {
     NewGame = FALSE;
-    ZeroMem (SnakeInfo.SnakeArry, sizeof(SNAKE_POINT) * BltBufferInfo.GameSizeX * BltBufferInfo.GameSizeY + 1);
+    InitSnake (&BltBufferInfo, &SnakeInfo);
     PaintGround (&BltBufferInfo, &BackPixel);
     PaintBorder(&BltBufferInfo, BltBufferInfo.GameStartX - 1, BltBufferInfo.GameStartY - 1, BltBufferInfo.GameSizeX + 1, BltBufferInfo.GameSizeY + 1,  &BoardPixel);
-    
-    Flush(&BltBufferInfo);
-    SnakeInfo.SnakeLength = 5;
-    for (Index = 0; Index < SnakeInfo.SnakeLength; Index++) {
-      (SnakeInfo.SnakeArry + Index)->X = BltBufferInfo.GameSizeX/2;
-      (SnakeInfo.SnakeArry + Index)->Y = BltBufferInfo.GameSizeY/2 - 2 + Index;
-    }
-    SnakeInfo.SnakeOrientaion = SNAKE_UP;
-    SnakeInfo.SnakeBackOrientaion = SNAKE_DOWN;
     PaintGameGround (&BltBufferInfo, &GameBackPixel);
     PaintSnake (&BltBufferInfo, &SnakeInfo);
-    StringOnScreen (&BltBufferInfo, &SnakeInfo);
+    PaintStringOnScreen (&BltBufferInfo, &SnakeInfo);
     Flush(&BltBufferInfo);
-    DEBUG ((DEBUG_ERROR, "kuang %a: %d\n", __FILE__, __LINE__));
-    SnakeRun(&BltBufferInfo, &SnakeInfo, &SnakeStatus);
-    DEBUG ((DEBUG_ERROR, "kuang %a: %d\n", __FILE__, __LINE__));  
+  
     while (TRUE) {
       if (SnakeStatus == SNAKE_GAME_OVER) {
         PaintGround (&BltBufferInfo, &BlackPixel);
@@ -539,7 +530,6 @@ SnakeMain (
         break;
       }
     }
+    SnakeRun(&BltBufferInfo, &SnakeInfo, &SnakeStatus);
   }
-
-  
 }
