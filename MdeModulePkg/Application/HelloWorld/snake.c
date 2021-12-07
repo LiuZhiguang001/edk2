@@ -225,13 +225,9 @@ Initialization (
   BltBufferInfo->BlockdXSize = BltBufferInfo->GroundXSize/BLOCK_SIZE;
   BltBufferInfo->BlockdYSize = BltBufferInfo->GroundYSize/BLOCK_SIZE;
   BltBufferInfo->GraphicsInterface = GraphicsInterface;
-  DEBUG ((DEBUG_ERROR, "GroundXSize=%d GroundYSize=%d\n", BltBufferInfo->GroundXSize, BltBufferInfo->GroundYSize));
-  DEBUG ((DEBUG_ERROR, "BlockdXSize=%d BlockdYSize=%d\n", BltBufferInfo->BlockdXSize, BltBufferInfo->BlockdYSize));
   gBS->AllocatePages(AllocateAnyPages, EfiBootServicesData, EFI_SIZE_TO_PAGES(sizeof(EFI_GRAPHICS_OUTPUT_BLT_PIXEL) * BltBufferInfo->GroundXSize * BltBufferInfo->GroundYSize), (EFI_PHYSICAL_ADDRESS *)&BltBuffer);
   ZeroMem (BltBuffer, sizeof(EFI_GRAPHICS_OUTPUT_BLT_PIXEL) * BltBufferInfo->GroundXSize * BltBufferInfo->GroundYSize);
   BltBufferInfo->BltBuffer = BltBuffer;
-  DEBUG ((DEBUG_ERROR, "BltBuffer=0x%p \n", BltBuffer));
-  //
   // Horizontal:  BlockdYSize/10-1  1 BlockdYSize/10*8 1 (BlockdXSize - BlockdYSize/10 -2 - BlockdYSize/10*8)
   BltBufferInfo->GameSizeX = BltBufferInfo->BlockdYSize/10*8;
   BltBufferInfo->GameSizeY = BltBufferInfo->BlockdYSize/10*8;
@@ -310,12 +306,10 @@ SnakeMove (
   }
 
   if (SnakeInfo->SnakeArry->X >= BltBufferInfo->GameSizeX) {
-     DEBUG ((DEBUG_ERROR, "kuang %a: %d\n", __FILE__, __LINE__));  
     *SnakeStatus = SNAKE_HIT_BOARD;
   }
 
-  if (SnakeInfo->SnakeArry->Y >= BltBufferInfo->GameSizeY) {
-    DEBUG ((DEBUG_ERROR, "kuang %a: %d\n", __FILE__, __LINE__));  
+  if (SnakeInfo->SnakeArry->Y >= BltBufferInfo->GameSizeY) { 
     *SnakeStatus = SNAKE_HIT_BOARD;
   }
   
@@ -324,7 +318,6 @@ SnakeMove (
   } else {
     for (Index = 1; Index < SnakeInfo->SnakeLength; Index++) {
       if ((SnakeInfo->SnakeArry->X == (SnakeInfo->SnakeArry + Index)->X) && (SnakeInfo->SnakeArry->Y == (SnakeInfo->SnakeArry + Index)->Y)) {
-         DEBUG ((DEBUG_ERROR, "kuang %a: %d\n", __FILE__, __LINE__));  
         *SnakeStatus = SNAKE_HIT_ITSELF;
         return FALSE;
       }
@@ -457,7 +450,6 @@ SnakeRun (
                        SnakeStatus
                        );
       if (*SnakeStatus != SNAKE_GOOD) {
-        DEBUG ((DEBUG_ERROR, "kuang %a: %d\n", __FILE__, __LINE__));  
         break;
       }
       if (NeedMoreFood) { 
@@ -492,17 +484,16 @@ SnakeMain (
 
   SnakeStatus = SNAKE_GOOD;
   Initialization (&BltBufferInfo, &SnakeInfo);
-  
+
+  InitSnake (&BltBufferInfo, &SnakeInfo);
+  PaintGround (&BltBufferInfo, &BackPixel);
+  PaintBorder(&BltBufferInfo, BltBufferInfo.GameStartX - 1, BltBufferInfo.GameStartY - 1, BltBufferInfo.GameSizeX + 1, BltBufferInfo.GameSizeY + 1,  &BoardPixel);
+  PaintGameGround (&BltBufferInfo, &GameBackPixel);
+  PaintSnake (&BltBufferInfo, &SnakeInfo);
+  PaintStringOnScreen (&BltBufferInfo, &SnakeInfo);
+  Flush(&BltBufferInfo);
   while (TRUE) {
     NewGame = FALSE;
-    InitSnake (&BltBufferInfo, &SnakeInfo);
-    PaintGround (&BltBufferInfo, &BackPixel);
-    PaintBorder(&BltBufferInfo, BltBufferInfo.GameStartX - 1, BltBufferInfo.GameStartY - 1, BltBufferInfo.GameSizeX + 1, BltBufferInfo.GameSizeY + 1,  &BoardPixel);
-    PaintGameGround (&BltBufferInfo, &GameBackPixel);
-    PaintSnake (&BltBufferInfo, &SnakeInfo);
-    PaintStringOnScreen (&BltBufferInfo, &SnakeInfo);
-    Flush(&BltBufferInfo);
-  
     while (TRUE) {
       if (SnakeStatus == SNAKE_GAME_OVER) {
         PaintGround (&BltBufferInfo, &BlackPixel);
@@ -515,12 +506,10 @@ SnakeMain (
         switch (Key.UnicodeChar)
         {
         case 'q':
-          DEBUG ((DEBUG_ERROR, "kuang %a: %d\n", __FILE__, __LINE__));  
           SnakeStatus = SNAKE_GAME_OVER;
           break;
         case 'e':
-          NewGame = TRUE;
-          DEBUG ((DEBUG_ERROR, "kuang %a: %d\n", __FILE__, __LINE__));  
+          NewGame = TRUE; 
           break;
         default:
           break;
@@ -530,6 +519,13 @@ SnakeMain (
         break;
       }
     }
+    InitSnake (&BltBufferInfo, &SnakeInfo);
+    PaintGround (&BltBufferInfo, &BackPixel);
+    PaintBorder(&BltBufferInfo, BltBufferInfo.GameStartX - 1, BltBufferInfo.GameStartY - 1, BltBufferInfo.GameSizeX + 1, BltBufferInfo.GameSizeY + 1,  &BoardPixel);
+    PaintGameGround (&BltBufferInfo, &GameBackPixel);
+    PaintSnake (&BltBufferInfo, &SnakeInfo);
+    PaintStringOnScreen (&BltBufferInfo, &SnakeInfo);
+    Flush(&BltBufferInfo);
     SnakeRun(&BltBufferInfo, &SnakeInfo, &SnakeStatus);
   }
 }
