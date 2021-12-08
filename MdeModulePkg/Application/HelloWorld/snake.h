@@ -13,6 +13,8 @@
 #include <Protocol/HiiFont.h>
 #include <Library/MemoryAllocationLib.h>
 #include <Library/PrintLib.h>
+#include <Library/TimeBaseLib.h>
+
 typedef enum {
   BOARD_UP,
   BOARD_DOWN,
@@ -63,6 +65,8 @@ typedef struct {
   UINTN                                 SnakeLength;
   SNAKE_ORIENTATION                     SnakeOrientaion;
   SNAKE_ORIENTATION                     SnakeBackOrientaion;
+  UINTN                                 Score;
+  UINTN                                 LastTime;
 } SNAKE_INFO;
 
 

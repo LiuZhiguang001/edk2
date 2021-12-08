@@ -183,7 +183,7 @@ PaintStringOnScreen (
     BltBufferInfo->StringBuffer,
     STRING_MAX_SIZE,
     StringTemplate,
-    SnakeInfo->SnakeLength
+    SnakeInfo->Score
     );
   Status = HiiFont->StringToImage (
                         HiiFont,
@@ -215,7 +215,7 @@ Initialization (
   EFI_GRAPHICS_OUTPUT_MODE_INFORMATION  *Info;
   UINTN                                 SizeOfInfo;
   EFI_TIME                              TheTime;
-  gRT->SetTime(&TheTime);
+  gRT->GetTime(&TheTime, NULL);
   RandomSeed ((UINT8 *)&TheTime, sizeof (TheTime));
 
   gBS->LocateProtocol(&gEfiGraphicsOutputProtocolGuid, NULL, (void**)&GraphicsInterface);
@@ -265,6 +265,7 @@ InitSnake (
   }
   SnakeInfo->SnakeOrientaion = SNAKE_UP;
   SnakeInfo->SnakeBackOrientaion = SNAKE_DOWN;
+  SnakeInfo->Score = 0;
 }
 
 BOOLEAN
@@ -349,7 +350,25 @@ GenerateFood (
   UINTN             GoalIndex;
   UINTN             Index;
   SNAKE_POINT       Food;
+  UINTN             Millisecond;
+  UINTN             TimePoint;
+  EFI_TIME          TheTime;
 
+  gRT->GetTime(&TheTime, NULL);
+
+  Millisecond = EfiTimeToEpoch (&TheTime) * 1000 + TheTime.Nanosecond / 1000;
+  
+  if (SnakeInfo->SnakeLength != 5) {
+    //  
+    //  The player will always get the point as the snake's length * snake's length
+    //  if the time is less than 0.1s, player will get 5000 point, means 500/Millisecond
+    //
+    TimePoint = 500 * 1000 / Millisecond;
+    if (TimePoint > 5000) {
+      TimePoint = 5000;
+    }
+    SnakeInfo ->Score = SnakeInfo ->Score + SnakeInfo->SnakeLength * SnakeInfo->SnakeLength + TimePoint;
+  }
   ZeroMem(BltBufferInfo->BlockOccupied, BltBufferInfo->GameSizeX * BltBufferInfo->GameSizeY);
   RandomBytes ((UINT8 *)&RandValue, sizeof(UINTN));
   EmptySize = BltBufferInfo->GameSizeX * BltBufferInfo->GameSizeY - SnakeInfo->SnakeLength;

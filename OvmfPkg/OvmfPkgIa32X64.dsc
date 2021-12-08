@@ -411,6 +411,7 @@
 !endif
 
 [LibraryClasses.common.UEFI_APPLICATION]
+  TimeBaseLib|EmbeddedPkg/Library/TimeBaseLib/TimeBaseLib.inf
   PcdLib|MdePkg/Library/DxePcdLib/DxePcdLib.inf
   TimerLib|OvmfPkg/Library/AcpiTimerLib/DxeAcpiTimerLib.inf
   ResetSystemLib|OvmfPkg/Library/ResetSystemLib/DxeResetSystemLib.inf
