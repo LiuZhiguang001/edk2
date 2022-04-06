@@ -144,14 +144,14 @@ PeiLoadFileLoadPayload (
 
   if (Context.ReloadRequired || (Context.PreferredImageAddress != Context.FileBase)) {
     Context.ImageAddress = AllocatePages (EFI_SIZE_TO_PAGES (Context.ImageSize));
+    //
+    // Load ELF into the required base
+    //
+    Status = LoadElfImage (&Context);
   } else {
     Context.ImageAddress = Context.FileBase;
   }
 
-  //
-  // Load ELF into the required base
-  //
-  Status = LoadElfImage (&Context);
   if (!EFI_ERROR (Status)) {
     *ImageAddressArg = (UINTN)Context.ImageAddress;
     *EntryPoint      = Context.EntryPoint;

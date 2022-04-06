@@ -312,6 +312,13 @@ ParseElfImage (
       ElfCt->ReloadRequired = TRUE;
     }
 
+    if (SegInfo.MemAddr != ((UINTN)ElfCt->FileBase + SegInfo.Offset)) {
+      //
+      // Need to relocate if the desired address is not the current address
+      //
+      ElfCt->ReloadRequired = TRUE;
+    }
+
     if (Base > (SegInfo.MemAddr & ~(EFI_PAGE_SIZE - 1))) {
       Base = SegInfo.MemAddr & ~(EFI_PAGE_SIZE - 1);
     }
