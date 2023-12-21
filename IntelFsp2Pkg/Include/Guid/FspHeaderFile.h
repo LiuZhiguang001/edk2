@@ -265,6 +265,18 @@ typedef struct {
   // UINT32  PatchData[];
 } FSP_PATCH_TABLE;
 
+///
+/// FSP Patch Data as described in FSP v2.0 Spec section 5.1.5.
+///
+typedef union {
+  struct {
+    UINT32    Offset   : 24;
+    UINT32    Type     : 4;
+    UINT32    Reserved : 3;
+    UINT32    Reversed : 1;
+  } Bits;
+  UINT32    Uint32;
+} FSP_PATCH_DATA;
   #pragma pack()
 
 extern EFI_GUID  gFspHeaderFileGuid;

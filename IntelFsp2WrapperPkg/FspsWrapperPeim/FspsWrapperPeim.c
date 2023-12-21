@@ -267,6 +267,53 @@ EFI_PEI_NOTIFY_DESCRIPTOR  mPeiMemoryDiscoveredNotifyDesc = {
   PeiMemoryDiscoveredNotify
 };
 
+EFI_STATUS
+PatchFspImage (
+  IN UINTN  FspBase
+  )
+{
+  FSP_INFO_HEADER  *FspHeader;
+  FSP_PATCH_TABLE  *FspPatchTable;
+  FSP_PATCH_DATA   *PatchOffset;
+  UINT32           Delta;
+  UINTN            Index;
+  UINT32           Offset;
+  UINT32           *Value;
+
+  FspHeader = (FSP_INFO_HEADER *)FspFindFspHeader ((EFI_PHYSICAL_ADDRESS)(UINTN)FspBase);
+  Delta     =  (UINT32)(UINTN)FspBase - (UINT32)(UINTN)FspHeader->ImageBase;
+  ASSERT (FspHeader->Signature == FSP_INFO_HEADER_SIGNATURE);
+  FspPatchTable = (FSP_PATCH_TABLE *)FspHeader;
+  while (TRUE) {
+    if (FspPatchTable->Signature == FSP_FSPP_SIGNATURE) {
+      break;
+    }
+
+    FspPatchTable = (FSP_PATCH_TABLE *)(((UINTN)FspPatchTable) + FspPatchTable->HeaderLength);
+  }
+
+  DEBUG ((DEBUG_INFO, "Found FSPP, Delta = %x, count:%d", Delta, FspPatchTable->PatchEntryNum));
+  PatchOffset = (FSP_PATCH_DATA   *)(FspPatchTable+1);
+  for (Index = 0; Index < FspPatchTable->PatchEntryNum; Index++) {
+    if ((PatchOffset->Bits.Type == 0) || (PatchOffset->Bits.Type == 0xF)) {
+      if (PatchOffset->Bits.Reversed == 0) {
+        Offset = PatchOffset->Bits.Offset;
+      } else {
+        Offset = FspHeader->ImageSize - (0x1000000 - PatchOffset->Bits.Offset);
+      }
+
+      ASSERT (Offset < FspHeader->ImageSize);
+
+      Value   = (UINT32 *)(FspBase + Offset);
+      *Value += Delta;
+    }
+
+    PatchOffset += 1;
+  }
+
+  return EFI_SUCCESS;
+}
+
 /**
   This function is called after PEI core discover memory and finish migration.
 
@@ -285,18 +332,40 @@ PeiMemoryDiscoveredNotify (
   IN VOID                       *Ppi
   )
 {
-  FSP_INFO_HEADER    *FspsHeaderPtr;
-  UINT64             TimeStampCounterStart;
-  EFI_STATUS         Status;
-  VOID               *FspHobListPtr;
-  EFI_HOB_GUID_TYPE  *GuidHob;
-  FSPS_UPD_COMMON    *FspsUpdDataPtr;
-  UINTN              *SourceData;
-  VOID               *Stack;
-  FSPS_UPD_COMMON_FSP24 *FspsUpd;
+  FSP_INFO_HEADER        *FspsHeaderPtr;
+  UINT64                 TimeStampCounterStart;
+  EFI_STATUS             Status;
+  VOID                   *FspHobListPtr;
+  EFI_HOB_GUID_TYPE      *GuidHob;
+  FSPS_UPD_COMMON        *FspsUpdDataPtr;
+  UINTN                  *SourceData;
+  VOID                   *Stack;
+  FSPS_UPD_COMMON_FSP24  *FspsUpd;
+  VOID                   *Buffer;
 
   DEBUG ((DEBUG_INFO, "PeiMemoryDiscoveredNotify enter\n"));
   FspsUpdDataPtr = NULL;
+
+  FspsHeaderPtr = (FSP_INFO_HEADER *)FspFindFspHeader (PcdGet32 (PcdFspsBaseAddress));
+  DEBUG ((DEBUG_INFO, "FspsHeaderPtr - 0x%x\n", FspsHeaderPtr));
+  if (FspsHeaderPtr == NULL) {
+    return EFI_DEVICE_ERROR;
+  }
+
+  DEBUG ((DEBUG_INFO, "PcdFspsBaseAddress %lx\n", PcdGet32 (PcdFspsBaseAddress)));
+  DEBUG ((DEBUG_INFO, "(UINTN)FspHeader->ImageBase %lx\n", (UINTN)FspsHeaderPtr->ImageBase));
+
+  if (PcdGet32 (PcdFspsBaseAddress) != (UINTN)FspsHeaderPtr->ImageBase) {
+    Buffer = AllocatePages (EFI_SIZE_TO_PAGES (FspsHeaderPtr->ImageSize));
+    if (Buffer == NULL) {
+      return EFI_OUT_OF_RESOURCES;
+    }
+
+    CopyMem (Buffer, (VOID *)(UINTN)(PcdGet32 (PcdFspsBaseAddress)), FspsHeaderPtr->ImageSize);
+    PcdSet32S (PcdFspsBaseAddress, (UINT32)(UINTN)Buffer);
+    Status = PatchFspImage (PcdGet32 (PcdFspsBaseAddress));
+    EFI_ERROR (Status);
+  }
 
   FspsHeaderPtr = (FSP_INFO_HEADER *)FspFindFspHeader (PcdGet32 (PcdFspsBaseAddress));
   DEBUG ((DEBUG_INFO, "FspsHeaderPtr - 0x%x\n", FspsHeaderPtr));
