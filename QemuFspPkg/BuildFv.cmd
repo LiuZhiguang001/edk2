@@ -214,7 +214,10 @@ python %WORKSPACE%\IntelFsp2Pkg\Tools\PatchFv.py ^
      "<[0x0000]>+0x00D4, Fsp24SecCoreM:%SYMBOL_PREFIX%TempRamExitApi - [0x0000],                                                             @TempRamExit API" ^
      "Fsp24SecCoreM:%SYMBOL_PREFIX%FspPeiCoreEntryOff, PeiCore:_%SYMBOL_PREFIX%ModuleEntryPoint - [0x0000],                                                @PeiCore Entry" ^
      "0x0000,            0x00000000,                                                                                         @Restore the value" ^
-     "Fsp24SecCoreM:%SYMBOL_PREFIX%FspInfoHeaderRelativeOff, Fsp24SecCoreM:%SYMBOL_PREFIX%AsmGetFspInfoHeader - {912740BE-2284-4734-B971-84B027353F0C:0x1C}, @FSP-M Header Offset"
+     "Fsp24SecCoreM:%SYMBOL_PREFIX%FspInfoHeaderRelativeOff, Fsp24SecCoreM:%SYMBOL_PREFIX%AsmGetFspInfoHeader - {912740BE-2284-4734-B971-84B027353F0C:0x1C}, @FSP-M Header Offset" ^
+     "Fsp24SecCoreM:%SYMBOL_PREFIX%GetRuntimeFspBaseAddressRelativeOff, Fsp24SecCoreM:%SYMBOL_PREFIX%GetRuntimeFspBaseAddressRelativeOff, @FSP-M Header Offset"
+
+     
 if ERRORLEVEL 1 goto:PreBuildFail
 
 echo Patch FSP-S Image ...
@@ -231,8 +234,9 @@ python %WORKSPACE%\IntelFsp2Pkg\Tools\PatchFv.py ^
      "<[0x0000]>+0x00D8, Fsp24SecCoreS:%SYMBOL_PREFIX%FspSiliconInitApi - [0x0000],                                                          @SiliconInit API" ^
      "<[0x0000]>+0x00CC, Fsp24SecCoreS:%SYMBOL_PREFIX%NotifyPhaseApi - [0x0000],                                                             @NotifyPhase API" ^
      "Fsp24SecCoreS:%SYMBOL_PREFIX%FspPeiCoreEntryOff, PeiCore:_%SYMBOL_PREFIX%ModuleEntryPoint - [0x0000],                                                @PeiCore Entry" ^
-     "0x0000,            0x00000000,                                                                                         @Restore the value" ^
-     "Fsp24SecCoreS:%SYMBOL_PREFIX%FspInfoHeaderRelativeOff, Fsp24SecCoreS:%SYMBOL_PREFIX%AsmGetFspInfoHeader - {912740BE-2284-4734-B971-84B027353F0C:0x1C}, @FSP-S Header Offset"
+     "Fsp24SecCoreS:%SYMBOL_PREFIX%FspInfoHeaderRelativeOff, Fsp24SecCoreS:%SYMBOL_PREFIX%AsmGetFspInfoHeader - {912740BE-2284-4734-B971-84B027353F0C:0x1C}, @FSP-S Header Offset" ^
+     "Fsp24SecCoreS:%SYMBOL_PREFIX%GetRuntimeFspBaseAddressRelativeOff, Fsp24SecCoreS:%SYMBOL_PREFIX%GetRuntimeFspBaseAddressRelativeOff - [0x0000], @FSP-S Header Offset" ^
+     "0x0000,            0x00000000,                                                                                         @Restore the value"
 if ERRORLEVEL 1 goto:PreBuildFail
 
 

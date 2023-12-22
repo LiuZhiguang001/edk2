@@ -363,8 +363,8 @@ PeiMemoryDiscoveredNotify (
 
     CopyMem (Buffer, (VOID *)(UINTN)(PcdGet32 (PcdFspsBaseAddress)), FspsHeaderPtr->ImageSize);
     PcdSet32S (PcdFspsBaseAddress, (UINT32)(UINTN)Buffer);
-    Status = PatchFspImage (PcdGet32 (PcdFspsBaseAddress));
-    EFI_ERROR (Status);
+    //Status = PatchFspImage (PcdGet32 (PcdFspsBaseAddress));
+    //EFI_ERROR (Status);
   }
   DEBUG ((DEBUG_INFO, "PcdFspsBaseAddress %lx\n", PcdGet32 (PcdFspsBaseAddress)));
   DEBUG ((DEBUG_INFO, "(UINTN)FspHeader->ImageBase %lx\n", (UINTN)FspsHeaderPtr->ImageBase));
@@ -380,7 +380,7 @@ PeiMemoryDiscoveredNotify (
     //
     FspsUpdDataPtr = (FSPS_UPD_COMMON *)AllocateZeroPool ((UINTN)FspsHeaderPtr->CfgRegionSize);
     ASSERT (FspsUpdDataPtr != NULL);
-    SourceData = (UINTN *)((UINTN)FspsHeaderPtr->ImageBase + (UINTN)FspsHeaderPtr->CfgRegionOffset);
+    SourceData = (UINTN *)((UINTN)(UINTN)PcdGet32 (PcdFspsBaseAddress) + (UINTN)FspsHeaderPtr->CfgRegionOffset);
     CopyMem (FspsUpdDataPtr, SourceData, (UINTN)FspsHeaderPtr->CfgRegionSize);
   } else {
     FspsUpdDataPtr = (FSPS_UPD_COMMON *)GetFspsUpdDataAddress ();

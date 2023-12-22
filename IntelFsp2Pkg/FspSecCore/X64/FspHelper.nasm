@@ -25,6 +25,15 @@ ASM_PFX(FspInfoHeaderRelativeOff):
    DD    0x12345678               ; This value must be patched by the build script
    ret
 
+global ASM_PFX(AsmGetRuntimeFspBaseAddress)
+ASM_PFX(AsmGetRuntimeFspBaseAddress):
+   lea   rax, [ASM_PFX(GetRuntimeFspBaseAddressRelativeOff)]
+   DB    0x48, 0x2d               ; sub rax, 0x????????
+global ASM_PFX(GetRuntimeFspBaseAddressRelativeOff)
+ASM_PFX(GetRuntimeFspBaseAddressRelativeOff):
+   DD    0x12345678               ; This value must be patched by the build script
+   ret
+
 global ASM_PFX(AsmGetFspInfoHeaderNoStack)
 ASM_PFX(AsmGetFspInfoHeaderNoStack):
    lea   rax, [ASM_PFX(AsmGetFspInfoHeader)]

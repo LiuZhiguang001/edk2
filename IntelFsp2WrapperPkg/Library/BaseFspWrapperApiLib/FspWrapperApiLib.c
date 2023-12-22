@@ -218,7 +218,7 @@ CallFspSiliconInit (
     return EFI_DEVICE_ERROR;
   }
 
-  FspSiliconInitApi = (FSP_SILICON_INIT)((UINTN)FspHeader->ImageBase + FspHeader->FspSiliconInitEntryOffset);
+  FspSiliconInitApi = (FSP_SILICON_INIT)((UINTN)PcdGet32 (PcdFspsBaseAddress) + FspHeader->FspSiliconInitEntryOffset);
  
   DEBUG ((DEBUG_INFO, "(UINTN)FspSiliconInitApi %lx\n", (UINTN)FspSiliconInitApi));
   InterruptState    = SaveAndDisableInterrupts ();

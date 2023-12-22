@@ -16,6 +16,7 @@ STACK_SAVED_RAX_OFFSET       EQU   8 * 7 ; size of a general purpose register * 
 ;
 extern ASM_PFX(Loader2PeiSwitchStack)
 extern ASM_PFX(FspApiCallingCheck)
+extern ASM_PFX(FspApiPatch)
 
 ;
 ; Following functions will be provided in ASM
@@ -46,6 +47,11 @@ ASM_PFX(FspApiCommon):
   jmp    exit
 
 FspApiCommon1:
+
+  PUSHA_64
+  call   ASM_PFX(FspApiPatch)
+  POPA_64
+
   ;
   ; Verify the calling condition
   ;

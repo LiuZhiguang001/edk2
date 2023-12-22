@@ -6,6 +6,62 @@
 **/
 
 #include "SecFsp.h"
+#include "Guid/FspHeaderFile.h"
+
+/**
+  This function check the FSP API calling condition.
+**/
+VOID
+EFIAPI
+FspApiPatch (
+  )
+{
+  UINT64           FspBase;
+  FSP_INFO_HEADER  *FspInfoHeader;
+  UINT32           Delta;
+  FSP_PATCH_TABLE  *FspPatchTable;
+  FSP_PATCH_DATA   *PatchOffset;
+  UINTN            Index;
+  UINT32           Offset;
+  UINT32           *Value;
+
+  FspBase       = AsmGetRuntimeFspBaseAddress ();
+  DEBUG ((DEBUG_INFO, "AsmGetRuntimeFspBaseAddress:%lx\n", (UINT32)FspBase));
+  FspInfoHeader = (FSP_INFO_HEADER *)(UINTN)AsmGetFspInfoHeader ();
+  Delta         = (UINT32)(FspBase - FspInfoHeader->ImageBase);
+  if (Delta == 0) {
+    return;
+  }
+
+  ASSERT (FspInfoHeader->Signature == FSP_INFO_HEADER_SIGNATURE);
+  FspPatchTable = (FSP_PATCH_TABLE *)FspInfoHeader;
+  while (TRUE) {
+    if (FspPatchTable->Signature == FSP_FSPP_SIGNATURE) {
+      break;
+    }
+
+    FspPatchTable = (FSP_PATCH_TABLE *)(((UINTN)FspPatchTable) + FspPatchTable->HeaderLength);
+  }
+
+  DEBUG ((DEBUG_INFO, "Found FSPP, Delta = %x, count:%d\n", Delta, FspPatchTable->PatchEntryNum));
+  PatchOffset = (FSP_PATCH_DATA   *)(FspPatchTable+1);
+  for (Index = 0; Index < FspPatchTable->PatchEntryNum; Index++) {
+    if ((PatchOffset->Bits.Type == 0) || (PatchOffset->Bits.Type == 0xF)) {
+      if (PatchOffset->Bits.Reversed == 0) {
+        Offset = PatchOffset->Bits.Offset;
+      } else {
+        Offset = FspInfoHeader->ImageSize - (0x1000000 - PatchOffset->Bits.Offset);
+      }
+
+      ASSERT (Offset < FspInfoHeader->ImageSize);
+
+      Value   = (UINT32 *)(FspBase + Offset);
+      *Value += Delta;
+    }
+
+    PatchOffset += 1;
+  }
+}
 
 /**
   This function check the FSP API calling condition.
