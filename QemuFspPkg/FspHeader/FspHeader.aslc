@@ -23,7 +23,7 @@ typedef struct{
   FSP_INFO_HEADER          FspInfoHeader;
   FSP_INFO_EXTENDED_HEADER FspInfoExtendedHeader;
   FSP_PATCH_TABLE          FspPatchTable;
-  UINT32                   FspPatchData0;
+  UINT32                   FspPatchData[100];
 }TABLES;
 
 #define FSP_PRODUCER_ID  "INTELC"
@@ -68,12 +68,11 @@ TABLES mTable =
   },
   {
     FSP_FSPP_SIGNATURE,                           // UINT32  Signature  (FSPP)
-    sizeof(FSP_PATCH_TABLE),                      // UINT16  Length;
+    sizeof(FSP_PATCH_TABLE)+4*100,                      // UINT16  Length;
     FSPP_HEADER_REVISION_1,                       // UINT8   Revision;
     0x00,                                         // UINT8   Reserved;
-    1                                             // UINT32  PatchEntryNum;
-  },
-    0xFFFFFFFC                                    // UINT32  Patch FVBASE at end of FV
+    0                                             // UINT32  PatchEntryNum;
+  }
 };
 
 

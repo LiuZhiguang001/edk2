@@ -366,7 +366,8 @@ PeiMemoryDiscoveredNotify (
     Status = PatchFspImage (PcdGet32 (PcdFspsBaseAddress));
     EFI_ERROR (Status);
   }
-
+  DEBUG ((DEBUG_INFO, "PcdFspsBaseAddress %lx\n", PcdGet32 (PcdFspsBaseAddress)));
+  DEBUG ((DEBUG_INFO, "(UINTN)FspHeader->ImageBase %lx\n", (UINTN)FspsHeaderPtr->ImageBase));
   FspsHeaderPtr = (FSP_INFO_HEADER *)FspFindFspHeader (PcdGet32 (PcdFspsBaseAddress));
   DEBUG ((DEBUG_INFO, "FspsHeaderPtr - 0x%x\n", FspsHeaderPtr));
   if (FspsHeaderPtr == NULL) {

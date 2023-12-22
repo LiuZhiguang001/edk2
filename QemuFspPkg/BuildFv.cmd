@@ -248,8 +248,8 @@ copy /y Build\%FSP_PKG_NAME%\%BD_TARGET%_%TOOL_CHAIN_TAG%\FV\FspsUpd.h   %WORKSP
 
 python IntelFsp2Pkg\Tools\SplitFspBin.py ^
      rebase -f %OUTPUT_DIR%\QEMUFSP.fd ^
-     -c s m -b 0xFFD80000 0xFFDC5000 ^
-     -o %OUTPUT_DIR% -n QEMU_FSP_REBASE.fd
+     -c s m -b 0xFFF80000 0xFFDC5000 ^
+     -o %OUTPUT_DIR% -n QEMU_FSP_REBASE.fd -p s
 
 python IntelFsp2Pkg\Tools\SplitFspBin.py ^
      split -f %OUTPUT_DIR%\QEMU_FSP_REBASE.fd ^

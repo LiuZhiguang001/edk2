@@ -11,7 +11,7 @@
 #include <Library/FspWrapperApiLib.h>
 #include <Library/BaseLib.h>
 #include <Library/BaseMemoryLib.h>
-
+#include <Library/DebugLib.h>
 /**
   Wrapper for a thunk to transition from long mode to compatibility mode to execute 32-bit code and then transit back to
   long mode.
@@ -219,6 +219,8 @@ CallFspSiliconInit (
   }
 
   FspSiliconInitApi = (FSP_SILICON_INIT)((UINTN)FspHeader->ImageBase + FspHeader->FspSiliconInitEntryOffset);
+ 
+  DEBUG ((DEBUG_INFO, "(UINTN)FspSiliconInitApi %lx\n", (UINTN)FspSiliconInitApi));
   InterruptState    = SaveAndDisableInterrupts ();
   if ((FspHeader->ImageAttribute & IMAGE_ATTRIBUTE_64BIT_MODE_SUPPORT) == FSP_IA32) {
     Status = Execute32BitCode ((UINTN)FspSiliconInitApi, (UINTN)FspsUpdDataPtr, (UINTN)NULL);

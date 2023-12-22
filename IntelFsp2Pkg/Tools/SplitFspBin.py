@@ -444,6 +444,7 @@ class Section:
 class FirmwareFile:
     def __init__(self, offset, filedata):
         self.FfsHdr   = EFI_FFS_FILE_HEADER.from_buffer (filedata, 0)
+        self.Type     = self.FfsHdr.Type
         self.FfsData  = filedata[0:int(self.FfsHdr.Size)]
         self.Offset   = offset
         self.SecList  = []
@@ -512,14 +513,17 @@ class FirmwareVolume:
                 offset = AlignPtr(offset)
 
 class FspImage:
-    def __init__(self, offset, fih, fihoff, patch):
+    def __init__(self, offset, fih, fihoff, patch, patchEmptyCount, patchEntryNumOffset, patchDataOffset):
         self.Fih       = fih
         self.FihOffset = fihoff
         self.Offset    = offset
         self.FvIdxList = []
         self.Type      = "XTMSIXXXOXXXXXXX"[(fih.ComponentAttribute >> 12) & 0x0F]
         self.PatchList = patch
-        self.PatchList.append(fihoff + 0x1C)
+        self.PatchEmptyList = []
+        self.patchEmptyCount = patchEmptyCount
+        self.patchEntryNumOffset = patchEntryNumOffset
+        self.patchDataOffset = patchDataOffset
 
     def AppendFv(self, FvIdx):
         self.FvIdxList.append(FvIdx)
@@ -547,6 +551,26 @@ class FspImage:
             count   -= 1
             applied -= 1
         return (count, applied)
+
+    def CreatePatchTable(self, fdbin):
+        assert self.patchEntryNumOffset != 0
+        assert self.patchDataOffset != 0
+        assert self.PatchList == []
+        self.PatchEmptyList.append(self.FihOffset + 0x1C)
+  
+        print("self.PatchEmptyList count = {}".format(len(self.PatchEmptyList)))
+        assert self.patchEmptyCount >= len(self.PatchEmptyList)
+        dataOffset = self.patchDataOffset
+        for offset in self.PatchEmptyList:
+            print(hex(offset))
+            fdbin[dataOffset:dataOffset+sizeof(c_uint32)] = Val2Bytes(offset, sizeof(c_uint32))
+            dataOffset+=sizeof(c_uint32)
+
+        fdbin[self.patchEntryNumOffset:self.patchEntryNumOffset+sizeof(c_uint32)] = Val2Bytes(len(self.PatchEmptyList), sizeof(c_uint32))
+
+    def PatchImageBase(self, newBase, fdbin):
+        offset = self.Offset + self.FihOffset + 0x1C
+        fdbin[offset:offset+sizeof(c_uint32)] = Val2Bytes(newBase, sizeof(c_uint32))
 
 class FirmwareDevice:
     def __init__(self, offset, fdfile):
@@ -607,6 +631,8 @@ class FirmwareDevice:
                 offset += fih.HeaderLength
                 offset = AlignPtr(offset, 4)
                 plist  = []
+                patchEntryNumOffset = 0
+                patchDataOffset = 0
                 while True:
                     fch = FSP_COMMON_HEADER.from_buffer (self.FdData, offset)
                     if b'FSPP' != fch.Signature:
@@ -614,12 +640,17 @@ class FirmwareDevice:
                         offset = AlignPtr(offset, 4)
                     else:
                         fspp = FSP_PATCH_TABLE.from_buffer (self.FdData, offset)
+                        patchEntryNumOffset = offset +FSP_PATCH_TABLE.PatchEntryNum.offset
                         offset += sizeof(fspp)
+                        patchDataOffset = offset
                         pdata  = (c_uint32 * fspp.PatchEntryNum).from_buffer(self.FdData, offset)
                         plist  = list(pdata)
+                        assert (fch.HeaderLength - sizeof(fspp)) %4 == 0
+                        plistEmptyCount = (int)((fch.HeaderLength - sizeof(fspp)) / 4)
+
                         break
 
-                fsp  = FspImage (fspoffset, fih, fihoffset, plist)
+                fsp  = FspImage (fspoffset, fih, fihoffset, plist, plistEmptyCount, patchEntryNumOffset, patchDataOffset)
                 fsp.AppendFv (idx)
                 self.FspList.append(fsp)
                 flen = fsp.Fih.ImageSize - fv.FvHdr.FvLength
@@ -697,10 +728,9 @@ class PeTeImage:
                 self.RelocList.append((rtype, aoff))
             offset += sizeof(rdata)
 
-    def Rebase(self, delta, fdbin):
+    def Rebase(self, delta, fdbin, PatchList):
         count = 0
-        if delta == 0:
-            return count
+
 
         for (rtype, roff) in self.RelocList:
             if rtype == 3: # IMAGE_REL_BASED_HIGHLOW
@@ -708,12 +738,14 @@ class PeTeImage:
                 value  = Bytes2Val(fdbin[offset:offset+sizeof(c_uint32)])
                 value += delta
                 fdbin[offset:offset+sizeof(c_uint32)] = Val2Bytes(value, sizeof(c_uint32))
+                PatchList.append(offset)
                 count += 1
             elif rtype == 10: # IMAGE_REL_BASED_DIR64
                 offset = roff + self.Offset
                 value  = Bytes2Val(fdbin[offset:offset+sizeof(c_uint64)])
                 value += delta
                 fdbin[offset:offset+sizeof(c_uint64)] = Val2Bytes(value, sizeof(c_uint64))
+                PatchList.append(offset)
                 count += 1
             else:
                 raise Exception('ERROR: Unknown relocation type %d !' % rtype)
@@ -733,7 +765,9 @@ class PeTeImage:
 
         value  = Bytes2Val(fdbin[offset:offset+size]) + delta
         fdbin[offset:offset+size] = Val2Bytes(value, size)
-
+        PatchList.append(offset)
+        if delta == 0:
+            return 0
         return count
 
 def ShowFspInfo (fspfile):
@@ -817,9 +851,9 @@ def GetImageFromFv (fd, parentfvoffset, fv, imglist):
         for sec in ffs.SecList:
             if sec.SecHdr.Type in [EFI_SECTION_TYPE.TE, EFI_SECTION_TYPE.PE32]:   # TE or PE32
                 offset = fd.Offset + parentfvoffset + fv.Offset + ffs.Offset + sec.Offset + sizeof(sec.SecHdr)
-                imglist.append ((offset, len(sec.SecData) - sizeof(sec.SecHdr)))
+                imglist.append ((offset, len(sec.SecData) - sizeof(sec.SecHdr), ffs.Type))
 
-def RebaseFspBin (FspBinary, FspComponent, FspBase, OutputDir, OutputFile):
+def RebaseFspBin (FspBinary, FspComponent, FspBase, OutputDir, OutputFile, FspComponentToCreatePatchTable):
     fd = FirmwareDevice(0, FspBinary)
     fd.ParseFd  ()
     fd.ParseFsp ()
@@ -870,18 +904,19 @@ def RebaseFspBin (FspBinary, FspComponent, FspBase, OutputDir, OutputFile):
 
         fcount  = 0
         pcount  = 0
-        for (offset, length) in imglist:
+
+        for (offset, length, type) in imglist:
             img = PeTeImage(offset, fd.FdData[offset:offset + length])
             img.ParseReloc()
-            pcount += img.Rebase(delta, newfspbin)
+            addPatchTable = (fspcomp in FspComponentToCreatePatchTable) and((type == 3)or (type==4))
+            tmp = []
+            pcount += img.Rebase(delta, newfspbin, fsp.PatchEmptyList if addPatchTable else tmp)
             fcount += 1
 
         print ("  Patched %d entries in %d TE/PE32 images." % (pcount, fcount))
-
-        (count, applied) = fsp.Patch(delta, newfspbin)
-        print ("  Patched %d entries using FSP patch table." % applied)
-        if count != applied:
-            print ("  %d invalid entries are ignored !" % (count - applied))
+        fsp.PatchImageBase(newbase, newfspbin)
+        if fspcomp in FspComponentToCreatePatchTable:
+            fsp.CreatePatchTable(newfspbin)
 
     if OutputFile == '':
         filename = os.path.basename(FspBinary)
@@ -905,6 +940,7 @@ def main ():
     parser_rebase.add_argument('-b',  '--newbase', dest='FspBase', nargs='+', type=str, help='Rebased FSP binary file name', default = '', required = True)
     parser_rebase.add_argument('-o',  '--outdir' , dest='OutputDir',  type=str, help='Output directory path', default = '.')
     parser_rebase.add_argument('-n',  '--outfile', dest='OutputFile', type=str, help='Rebased FSP binary file name', default = '')
+    parser_rebase.add_argument('-p',  '--createFSPP', choices=['t','m','s','o','i'],  nargs='+', dest='FspComponentToCreatePatchTable', type=str, help='FSP component to create patch table for SecCore and PeiCore when rebasing', default = "[]")
 
     parser_split  = subparsers.add_parser('split',  help='split a FSP into multiple components')
     parser_split.set_defaults(which='split')
@@ -930,7 +966,7 @@ def main ():
             raise Exception ("ERROR: Invalid output directory '%s' !" % args.OutputDir)
 
     if args.which == 'rebase':
-        RebaseFspBin (args.FspBinary, args.FspComponent, args.FspBase, args.OutputDir, args.OutputFile)
+        RebaseFspBin (args.FspBinary, args.FspComponent, args.FspBase, args.OutputDir, args.OutputFile, args.FspComponentToCreatePatchTable)
     elif args.which == 'split':
         SplitFspBin (args.FspBinary, args.OutputDir, args.NameTemplate)
     elif args.which == 'genhdr':
