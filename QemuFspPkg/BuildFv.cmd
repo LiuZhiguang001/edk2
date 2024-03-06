@@ -213,6 +213,7 @@ python %WORKSPACE%\IntelFsp2Pkg\Tools\PatchFv.py ^
      "<[0x0000]>+0x00D0, Fsp24SecCoreM:%SYMBOL_PREFIX%FspMemoryInitApi - [0x0000],                                                           @MemoryInitApi API" ^
      "<[0x0000]>+0x00D4, Fsp24SecCoreM:%SYMBOL_PREFIX%TempRamExitApi - [0x0000],                                                             @TempRamExit API" ^
      "Fsp24SecCoreM:%SYMBOL_PREFIX%FspPeiCoreEntryOff, PeiCore:_%SYMBOL_PREFIX%ModuleEntryPoint - [0x0000],                                                @PeiCore Entry" ^
+     "Fsp24SecCoreS:%SYMBOL_PREFIX%FspBaseAddressRelativeOff, Fsp24SecCoreS:%SYMBOL_PREFIX%FspBaseAddressRelativeOff - [0x0000],           @FSP-S FspBaseAddressRelativeOff" ^
      "0x0000,            0x00000000,                                                                                         @Restore the value" ^
      "Fsp24SecCoreM:%SYMBOL_PREFIX%FspInfoHeaderRelativeOff, Fsp24SecCoreM:%SYMBOL_PREFIX%AsmGetFspInfoHeader - {912740BE-2284-4734-B971-84B027353F0C:0x1C}, @FSP-M Header Offset"
 if ERRORLEVEL 1 goto:PreBuildFail
@@ -231,6 +232,9 @@ python %WORKSPACE%\IntelFsp2Pkg\Tools\PatchFv.py ^
      "<[0x0000]>+0x00D8, Fsp24SecCoreS:%SYMBOL_PREFIX%FspSiliconInitApi - [0x0000],                                                          @SiliconInit API" ^
      "<[0x0000]>+0x00CC, Fsp24SecCoreS:%SYMBOL_PREFIX%NotifyPhaseApi - [0x0000],                                                             @NotifyPhase API" ^
      "Fsp24SecCoreS:%SYMBOL_PREFIX%FspPeiCoreEntryOff, PeiCore:_%SYMBOL_PREFIX%ModuleEntryPoint - [0x0000],                                                @PeiCore Entry" ^
+     "Fsp24SecCoreS:%SYMBOL_PREFIX%FspBaseAddressRelativeOff, Fsp24SecCoreS:%SYMBOL_PREFIX%FspBaseAddressRelativeOff - [0x0000],           @FSP-S FspBaseAddressRelativeOff" ^
+     "Fsp24SecCoreS:%SYMBOL_PREFIX%SecCoreAddressRelativeOff, Fsp24SecCoreS:%SYMBOL_PREFIX%SecCoreAddressRelativeOff - Fsp24SecCoreS:BASE, @FSP-S SecCoreAddressRelativeOff" ^
+     "Fsp24SecCoreS:%SYMBOL_PREFIX%PeiCoreAddressRelativeOff, Fsp24SecCoreS:%SYMBOL_PREFIX%PeiCoreAddressRelativeOff - PeiCore:BASE,       @FSP-S PeiCoreAddressRelativeOff" ^
      "0x0000,            0x00000000,                                                                                         @Restore the value" ^
      "Fsp24SecCoreS:%SYMBOL_PREFIX%FspInfoHeaderRelativeOff, Fsp24SecCoreS:%SYMBOL_PREFIX%AsmGetFspInfoHeader - {912740BE-2284-4734-B971-84B027353F0C:0x1C}, @FSP-S Header Offset"
 if ERRORLEVEL 1 goto:PreBuildFail
@@ -248,7 +252,7 @@ copy /y Build\%FSP_PKG_NAME%\%BD_TARGET%_%TOOL_CHAIN_TAG%\FV\FspsUpd.h   %WORKSP
 
 python IntelFsp2Pkg\Tools\SplitFspBin.py ^
      rebase -f %OUTPUT_DIR%\QEMUFSP.fd ^
-     -c s m -b 0xFFD80000 0xFFDC5000 ^
+     -c s m -b 0xFFF80000 0xFFDC5000 ^
      -o %OUTPUT_DIR% -n QEMU_FSP_REBASE.fd
 
 python IntelFsp2Pkg\Tools\SplitFspBin.py ^

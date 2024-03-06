@@ -88,4 +88,40 @@ AsmGetFspInfoHeader (
   VOID
   );
 
+/**
+  This interface gets FspBaseAddress
+
+  @return   FSP info header.
+
+**/
+UINTN
+EFIAPI
+AsmGetRuntimeFspBaseAddress (
+  VOID
+  );
+
+/**
+  This interface gets SecCoreAddress
+
+  @return   FSP info header.
+
+**/
+UINTN
+EFIAPI
+AsmGetRuntimeSecCoreAddress (
+  VOID
+  );
+
+/**
+  This interface gets PeiCoreAddress
+
+  @return   FSP info header.
+
+**/
+UINTN
+EFIAPI
+AsmGetRuntimePeiCoreAddress (
+  VOID
+  );
+
 #endif

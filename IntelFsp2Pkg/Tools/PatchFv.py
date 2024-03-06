@@ -384,6 +384,7 @@ class Symbols:
                     if len(modName) == 36:
                        modName = self.dictGuidNameXref[modName.upper()]
                     self.dictModBase['%s:BASE'  % modName] = int (match.group(2), 16)
+                    self.dictSymbolAddress['%s:BASE'  % modName] = match.group(2)
                     self.dictModBase['%s:ENTRY' % modName] = int (match.group(3), 16)
                 #(GUID=86D70125-BAA3-4296-A62F-602BEBBB9081 .textbaseaddress=0x00fffb4398 .databaseaddress=0x00fffb4178)
                 match = re.match("\(GUID=([A-Z0-9\-]+)\s+\.textbaseaddress=(0x[0-9a-fA-F]+)\s+\.databaseaddress=(0x[0-9a-fA-F]+)\)", rptLine)
@@ -719,7 +720,7 @@ class Symbols:
     def getModGuid(self, var):
         guid = (guid for guid,name in self.dictGuidNameXref.items() if name==var)
         try:
-            value = guid.next()
+            value = next(guid)
         except Exception:
             raise Exception("Unknown module name %s !" % var)
         return value

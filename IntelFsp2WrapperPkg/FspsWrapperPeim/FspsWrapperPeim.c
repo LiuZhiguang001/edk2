@@ -285,18 +285,38 @@ PeiMemoryDiscoveredNotify (
   IN VOID                       *Ppi
   )
 {
-  FSP_INFO_HEADER    *FspsHeaderPtr;
-  UINT64             TimeStampCounterStart;
-  EFI_STATUS         Status;
-  VOID               *FspHobListPtr;
-  EFI_HOB_GUID_TYPE  *GuidHob;
-  FSPS_UPD_COMMON    *FspsUpdDataPtr;
-  UINTN              *SourceData;
-  VOID               *Stack;
-  FSPS_UPD_COMMON_FSP24 *FspsUpd;
+  FSP_INFO_HEADER        *FspsHeaderPtr;
+  UINT64                 TimeStampCounterStart;
+  EFI_STATUS             Status;
+  VOID                   *FspHobListPtr;
+  EFI_HOB_GUID_TYPE      *GuidHob;
+  FSPS_UPD_COMMON        *FspsUpdDataPtr;
+  UINTN                  *SourceData;
+  VOID                   *Stack;
+  FSPS_UPD_COMMON_FSP24  *FspsUpd;
+  VOID                   *Buffer;
 
   DEBUG ((DEBUG_INFO, "PeiMemoryDiscoveredNotify enter\n"));
   FspsUpdDataPtr = NULL;
+
+  FspsHeaderPtr = (FSP_INFO_HEADER *)FspFindFspHeader (PcdGet32 (PcdFspsBaseAddress));
+  DEBUG ((DEBUG_INFO, "FspsHeaderPtr - 0x%x\n", FspsHeaderPtr));
+  if (FspsHeaderPtr == NULL) {
+    return EFI_DEVICE_ERROR;
+  }
+
+  DEBUG ((DEBUG_INFO, "PcdFspsBaseAddress %lx\n", PcdGet32 (PcdFspsBaseAddress)));
+  DEBUG ((DEBUG_INFO, "(UINTN)FspHeader->ImageBase %lx\n", (UINTN)FspsHeaderPtr->ImageBase));
+
+  if (PcdGet32 (PcdFspsBaseAddress) != (UINTN)FspsHeaderPtr->ImageBase) {
+    Buffer = AllocatePages (EFI_SIZE_TO_PAGES (FspsHeaderPtr->ImageSize));
+    if (Buffer == NULL) {
+      return EFI_OUT_OF_RESOURCES;
+    }
+
+    CopyMem (Buffer, (VOID *)(UINTN)(PcdGet32 (PcdFspsBaseAddress)), FspsHeaderPtr->ImageSize);
+    PcdSet32S (PcdFspsBaseAddress, (UINT32)(UINTN)Buffer);
+  }
 
   FspsHeaderPtr = (FSP_INFO_HEADER *)FspFindFspHeader (PcdGet32 (PcdFspsBaseAddress));
   DEBUG ((DEBUG_INFO, "FspsHeaderPtr - 0x%x\n", FspsHeaderPtr));
@@ -310,7 +330,7 @@ PeiMemoryDiscoveredNotify (
     //
     FspsUpdDataPtr = (FSPS_UPD_COMMON *)AllocateZeroPool ((UINTN)FspsHeaderPtr->CfgRegionSize);
     ASSERT (FspsUpdDataPtr != NULL);
-    SourceData = (UINTN *)((UINTN)FspsHeaderPtr->ImageBase + (UINTN)FspsHeaderPtr->CfgRegionOffset);
+    SourceData = (UINTN *)((UINTN)PcdGet32 (PcdFspsBaseAddress) + (UINTN)FspsHeaderPtr->CfgRegionOffset);
     CopyMem (FspsUpdDataPtr, SourceData, (UINTN)FspsHeaderPtr->CfgRegionSize);
   } else {
     FspsUpdDataPtr = (FSPS_UPD_COMMON *)GetFspsUpdDataAddress ();
@@ -319,9 +339,9 @@ PeiMemoryDiscoveredNotify (
 
   UpdateFspsUpdData ((VOID *)FspsUpdDataPtr);
 
-  FspsUpd = (FSPS_UPD_COMMON_FSP24 *)FspsUpdDataPtr;
+  FspsUpd                        = (FSPS_UPD_COMMON_FSP24 *)FspsUpdDataPtr;
   FspsUpd->FspsArchUpd.StackSize = SIZE_512KB;
-  Stack = AllocatePages (EFI_SIZE_TO_PAGES (FspsUpd->FspsArchUpd.StackSize));
+  Stack                          = AllocatePages (EFI_SIZE_TO_PAGES (FspsUpd->FspsArchUpd.StackSize));
   ASSERT (Stack != NULL);
   FspsUpd->FspsArchUpd.StackBase = (UINTN)Stack;
 
