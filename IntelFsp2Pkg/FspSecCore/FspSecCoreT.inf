@@ -46,6 +46,7 @@
   FspSwitchStackLib
   FspCommonLib
   FspSecPlatformLib
+  PeCoffLib
 
 [Pcd]
   gIntelFsp2PkgTokenSpaceGuid.PcdTemporaryRamBase              ## CONSUMES

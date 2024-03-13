@@ -50,5 +50,4 @@
   FspSwitchStackLib
   FspCommonLib
   FspSecPlatformLib
-
-
+  PeCoffLib

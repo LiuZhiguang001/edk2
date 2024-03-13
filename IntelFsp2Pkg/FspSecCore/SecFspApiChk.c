@@ -7,106 +7,39 @@
 
 #include "SecFsp.h"
 #include "Guid/FspHeaderFile.h"
+#include <Library/PeCoffLib.h>
 
 /**
-  Relocate Te Image
+  Relocate Pe/Te Image
 **/
 EFI_STATUS
-RelocateTeImage (
-  UINT64  TeImageBaseAddress,
-  UINT64  Adjust
+RelocatePeTeImage (
+  UINT64  ImageBaseAddress
   )
 {
-  EFI_TE_IMAGE_HEADER        *TeHdr;
-  EFI_IMAGE_DATA_DIRECTORY   *RelocDir;
-  EFI_IMAGE_BASE_RELOCATION  *RelocBase;
-  EFI_IMAGE_BASE_RELOCATION  *RelocBaseEnd;
-  UINT16                     *Reloc;
-  UINT16                     *RelocEnd;
-  CHAR8                      *FixupBase;
-  CHAR8                      *Fixup;
-  UINT16                     *F16;
-  UINT32                     *F32;
-  UINT64                     *F64;
+  RETURN_STATUS                 Status;
+  PE_COFF_LOADER_IMAGE_CONTEXT  ImageContext;
 
-  TeHdr = (EFI_TE_IMAGE_HEADER *)(UINTN)TeImageBaseAddress;
+  ZeroMem (&ImageContext, sizeof (ImageContext));
 
-  if (TeHdr->Signature != EFI_TE_IMAGE_HEADER_SIGNATURE) {
-    DEBUG ((DEBUG_WARN, "Warning: Not TE image\n"));
-    return RETURN_UNSUPPORTED;
+  ImageContext.Handle    = (VOID *)ImageBaseAddress;
+  ImageContext.ImageRead = PeCoffLoaderImageReadFromMemory;
+
+  Status = PeCoffLoaderGetImageInfo (&ImageContext);
+  if (EFI_ERROR (Status)) {
+    ASSERT_EFI_ERROR (Status);
+    return Status;
   }
 
-  RelocDir  = &TeHdr->DataDirectory[0];
-  RelocBase = (EFI_IMAGE_BASE_RELOCATION *)(UINTN)(
-                                                   TeImageBaseAddress +
-                                                   RelocDir->VirtualAddress +
-                                                   sizeof (EFI_TE_IMAGE_HEADER) -
-                                                   TeHdr->StrippedSize
-                                                   );
-  RelocBaseEnd = (EFI_IMAGE_BASE_RELOCATION *)((UINTN)RelocBase + (UINTN)RelocDir->Size - 1);
+  ImageContext.ImageAddress = (EFI_PHYSICAL_ADDRESS)(UINTN)ImageBaseAddress;
 
   //
-  // Run the relocation information and apply the fixups
+  // rebase the image
   //
-  while (RelocBase < RelocBaseEnd) {
-    Reloc     = (UINT16 *)((CHAR8 *)RelocBase + sizeof (EFI_IMAGE_BASE_RELOCATION));
-    RelocEnd  = (UINT16 *)((CHAR8 *)RelocBase + RelocBase->SizeOfBlock);
-    FixupBase = (CHAR8 *)(UINTN)(TeImageBaseAddress +
-                                 RelocBase->VirtualAddress +
-                                 sizeof (EFI_TE_IMAGE_HEADER) -
-                                 TeHdr->StrippedSize
-                                 );
+  Status = PeCoffLoaderRelocateImage (&ImageContext);
 
-    //
-    // Run this relocation record
-    //
-    while (Reloc < RelocEnd) {
-      Fixup = FixupBase + (*Reloc & 0xFFF);
-      switch ((*Reloc) >> 12) {
-        case EFI_IMAGE_REL_BASED_ABSOLUTE:
-          break;
-
-        case EFI_IMAGE_REL_BASED_HIGH:
-          F16  = (UINT16 *)Fixup;
-          *F16 = (UINT16)(*F16 + ((UINT16)((UINT32)Adjust >> 16)));
-          break;
-
-        case EFI_IMAGE_REL_BASED_LOW:
-          F16  = (UINT16 *)Fixup;
-          *F16 = (UINT16)(*F16 + (UINT16)Adjust);
-          break;
-
-        case EFI_IMAGE_REL_BASED_HIGHLOW:
-          F32  = (UINT32 *)Fixup;
-          *F32 = *F32 + (UINT32)Adjust;
-          break;
-
-        case EFI_IMAGE_REL_BASED_DIR64:
-          F64  = (UINT64 *)Fixup;
-          *F64 = *F64 + (UINT64)Adjust;
-          break;
-
-        default:
-          //
-          // Return the same EFI_UNSUPPORTED return since it does not recognize
-          // other the relocation type.
-          //
-          return RETURN_UNSUPPORTED;
-      }
-
-      //
-      // Next relocation record
-      //
-      Reloc += 1;
-    }
-
-    //
-    // Next reloc block
-    //
-    RelocBase = (EFI_IMAGE_BASE_RELOCATION *)RelocEnd;
-  }
-
-  return EFI_SUCCESS;
+  ASSERT_EFI_ERROR (Status);
+  return Status;
 }
 
 /**
@@ -127,7 +60,6 @@ FspApiPatch (
   FspBase       = AsmGetRuntimeFspBaseAddress ();
   FspInfoHeader = (FSP_INFO_HEADER *)(UINTN)AsmGetFspInfoHeader ();
   ASSERT (FspInfoHeader->Signature == FSP_INFO_HEADER_SIGNATURE);
-
   Delta = FspBase - (UINT64)FspInfoHeader->ImageBase;
   if (Delta == 0) {
     //
@@ -149,7 +81,7 @@ FspApiPatch (
   // Get SecCore image, and rebase it
   //
   SecCoreImageBase = AsmGetRuntimeSecCoreAddress ();
-  Status           = RelocateTeImage (SecCoreImageBase, Delta);
+  Status           = RelocatePeTeImage (SecCoreImageBase);
   if (!EFI_ERROR (Status)) {
     DEBUG ((DEBUG_INFO, "Sec Core is relocated successfully\n"));
   } else {
@@ -160,7 +92,7 @@ FspApiPatch (
   // Get PeiCore image, and rebase it
   //
   PeiCoreImageBase = AsmGetRuntimePeiCoreAddress ();
-  Status           = RelocateTeImage (PeiCoreImageBase, Delta);
+  Status           = RelocatePeTeImage (PeiCoreImageBase);
   if (!EFI_ERROR (Status)) {
     DEBUG ((DEBUG_INFO, "Pei Core is relocated successfully\n"));
   } else {
