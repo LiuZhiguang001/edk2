@@ -26,7 +26,7 @@
 #include <Library/PerformanceLib.h>
 #include <Library/FspWrapperApiLib.h>
 #include <Library/FspMeasurementLib.h>
-
+#include <Library/FvLib.h>
 #include <Ppi/FspSiliconInitDone.h>
 #include <Ppi/EndOfPeiPhase.h>
 #include <Ppi/MemoryDiscovered.h>
@@ -38,6 +38,9 @@
 #include <FspEas.h>
 #include <FspStatusCode.h>
 #include <FspGlobalData.h>
+#include <Ppi/FirmwareVolume.h>
+#include <Pi/PiFirmwareFile.h>
+#include <Library/PeCoffLib.h>
 
 extern EFI_PEI_NOTIFY_DESCRIPTOR  mS3EndOfPeiNotifyDesc;
 extern EFI_GUID                   gFspHobGuid;
@@ -267,6 +270,80 @@ EFI_PEI_NOTIFY_DESCRIPTOR  mPeiMemoryDiscoveredNotifyDesc = {
   PeiMemoryDiscoveredNotify
 };
 
+EFI_STATUS
+RebasePeTeFromFfs (
+  EFI_FFS_FILE_HEADER                *FileHeader
+  )
+{
+  EFI_STATUS                    Status;
+  VOID                          *Pe32Data;
+  PE_COFF_LOADER_IMAGE_CONTEXT  ImageContext;
+  UINTN                         Pe32DataSize;
+
+  Status = FfsFindSectionData (EFI_SECTION_PE32, FileHeader, &Pe32Data, &Pe32DataSize);
+  DEBUG ((DEBUG_INFO, "Find PE data - 0x%x\n", Pe32Data));
+  if (EFI_ERROR (Status)) {
+    Status = FfsFindSectionData (EFI_SECTION_TE, FileHeader, &Pe32Data, &Pe32DataSize);
+    DEBUG ((DEBUG_INFO, "Find TE data - 0x%x\n", Pe32Data));
+  }
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  ZeroMem (&ImageContext, sizeof (ImageContext));
+  ImageContext.Handle    = Pe32Data;
+  ImageContext.ImageRead = PeCoffLoaderImageReadFromMemory;
+
+  Status = PeCoffLoaderGetImageInfo (&ImageContext);
+  if (EFI_ERROR (Status)) {
+    ASSERT_EFI_ERROR (Status);
+    DEBUG ((DEBUG_INFO, "%llx PeCoffLoaderGetImageInfo faile\n", (UINTN)Pe32Data));
+    return Status;
+  }
+
+  ImageContext.ImageAddress = (EFI_PHYSICAL_ADDRESS)(UINTN)Pe32Data;
+
+  //
+  // rebase the image
+  //
+  DEBUG ((DEBUG_INFO, " PeCoffLoaderRelocateImage %llx\n", (UINTN)ImageContext.ImageAddress));
+  Status = PeCoffLoaderRelocateImage (&ImageContext);
+  DEBUG ((DEBUG_INFO, "%llx PeCoffLoaderRelocateImage Status:%r\n",  Status));
+  ASSERT_EFI_ERROR (Status);
+
+  return Status;
+}
+
+VOID
+RebaseFspS (
+  UINT64             PcdFspsBaseAddress
+  )
+{
+
+  EFI_STATUS                         Status;
+  EFI_FIRMWARE_VOLUME_HEADER         *FwVolHeader;
+  EFI_FFS_FILE_HEADER                *FileHeader;
+
+  FwVolHeader = (EFI_FIRMWARE_VOLUME_HEADER *) (UINTN)PcdFspsBaseAddress;
+  FileHeader = NULL;
+  do {
+    Status = FfsFindNextFile (EFI_FV_FILETYPE_SECURITY_CORE, FwVolHeader, &FileHeader);
+    DEBUG ((DEBUG_INFO, "Find sec data - 0x%x\n", (UINTN)FileHeader));
+    if (!EFI_ERROR (Status)) {
+      DEBUG ((DEBUG_INFO, "Find sec data - 0x%x\n", (UINTN)FileHeader));
+      RebasePeTeFromFfs(FileHeader);
+    }
+  } while (!EFI_ERROR (Status));
+  FileHeader = NULL;
+  do {
+    Status = FfsFindNextFile (EFI_FV_FILETYPE_PEI_CORE, FwVolHeader, &FileHeader);
+
+    if (!EFI_ERROR (Status)) {
+      DEBUG ((DEBUG_INFO, "Find pei data - 0x%x\n", (UINTN)FileHeader));
+      RebasePeTeFromFfs(FileHeader);
+    }
+  } while (!EFI_ERROR (Status));
+}
 /**
   This function is called after PEI core discover memory and finish migration.
 
@@ -292,6 +369,7 @@ PeiMemoryDiscoveredNotify (
   EFI_HOB_GUID_TYPE  *GuidHob;
   FSPS_UPD_COMMON    *FspsUpdDataPtr;
   UINTN              *SourceData;
+  VOID               *BaseAddress;
 
   DEBUG ((DEBUG_INFO, "PeiMemoryDiscoveredNotify enter\n"));
   FspsUpdDataPtr = NULL;
@@ -300,6 +378,20 @@ PeiMemoryDiscoveredNotify (
   DEBUG ((DEBUG_INFO, "FspsHeaderPtr - 0x%x\n", FspsHeaderPtr));
   if (FspsHeaderPtr == NULL) {
     return EFI_DEVICE_ERROR;
+  }
+
+  if (!FeaturePcdGet (PcdFspNeedRebase)) {
+    ASSERT(FspsHeaderPtr->ImageBase == PcdGet32 (PcdFspsBaseAddress));
+  } else {
+    if (FspsHeaderPtr->ImageBase != PcdGet32 (PcdFspsBaseAddress)) {
+      BaseAddress = AllocatePages (EFI_SIZE_TO_PAGES (FspsHeaderPtr->ImageSize));
+      CopyMem (BaseAddress, (VOID *)(UINTN)PcdGet32 (PcdFspsBaseAddress), FspsHeaderPtr->ImageSize);
+      PcdSet32S (PcdFspsBaseAddress,(UINT32) (UINTN)BaseAddress);
+
+      FspsHeaderPtr = (FSP_INFO_HEADER *)FspFindFspHeader (PcdGet32 (PcdFspsBaseAddress));
+      FspsHeaderPtr->ImageBase = (UINT32)(UINTN)BaseAddress;
+      RebaseFspS (PcdGet32 (PcdFspsBaseAddress));
+    }
   }
 
   if ((GetFspsUpdDataAddress () == 0) && (FspsHeaderPtr->CfgRegionSize != 0) && (FspsHeaderPtr->CfgRegionOffset != 0)) {

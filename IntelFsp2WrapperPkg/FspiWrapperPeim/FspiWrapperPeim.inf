@@ -41,6 +41,8 @@
   FspWrapperApiLib
   FspWrapperApiTestLib
   FspMeasurementLib
+  PeCoffLib
+  FvLib
 
 [Packages]
   MdePkg/MdePkg.dec
@@ -48,6 +50,7 @@
   IntelFsp2Pkg/IntelFsp2Pkg.dec
   SecurityPkg/SecurityPkg.dec
   IntelFsp2WrapperPkg/IntelFsp2WrapperPkg.dec
+  StandaloneMmPkg/StandaloneMmPkg.dec
 
 [Ppis]
   gEdkiiTcgPpiGuid                                       ## NOTIFY
@@ -58,6 +61,7 @@
   gIntelFsp2WrapperTokenSpaceGuid.PcdFspModeSelection      ## CONSUMES
   gIntelFsp2WrapperTokenSpaceGuid.PcdFspiUpdDataAddress    ## CONSUMES
   gIntelFsp2WrapperTokenSpaceGuid.PcdFspMeasurementConfig  ## CONSUMES
+  gIntelFsp2WrapperTokenSpaceGuid.PcdFspNeedRebase
 
 [Guids]
   gFspHobGuid                           ## CONSUMES ## HOB

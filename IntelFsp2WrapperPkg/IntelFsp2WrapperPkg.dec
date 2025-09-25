@@ -147,3 +147,8 @@
   #              buffer address before FspWrapper module executing.
   #
   gIntelFsp2WrapperTokenSpaceGuid.PcdFspiUpdDataAddress|0x00000000|UINT64|0x50000005
+
+[PcdsFeatureFlag.common]
+  # Whether need to rebase FSP S and FSP I.
+  # if PcdFspNeedRebase is set to TRUE, PcdFspsBaseAddress and PcdFspIBaseAddress must be dynamic
+  gIntelFsp2WrapperTokenSpaceGuid.PcdFspNeedRebase|FALSE|BOOLEAN|0x50000005

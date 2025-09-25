@@ -30,6 +30,81 @@
 #include <Ppi/Tcg.h>
 #include <Ppi/FirmwareVolumeInfoMeasurementExcluded.h>
 
+EFI_STATUS
+RebasePeTeFromFfs (
+  EFI_FFS_FILE_HEADER                *FileHeader
+  )
+{
+  EFI_STATUS                    Status;
+  VOID                          *Pe32Data;
+  PE_COFF_LOADER_IMAGE_CONTEXT  ImageContext;
+  UINTN                         Pe32DataSize;
+
+  Status = FfsFindSectionData (EFI_SECTION_PE32, FileHeader, &Pe32Data, &Pe32DataSize);
+  DEBUG ((DEBUG_INFO, "Find PE data - 0x%x\n", Pe32Data));
+  if (EFI_ERROR (Status)) {
+    Status = FfsFindSectionData (EFI_SECTION_TE, FileHeader, &Pe32Data, &Pe32DataSize);
+    DEBUG ((DEBUG_INFO, "Find TE data - 0x%x\n", Pe32Data));
+  }
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  ZeroMem (&ImageContext, sizeof (ImageContext));
+  ImageContext.Handle    = Pe32Data;
+  ImageContext.ImageRead = PeCoffLoaderImageReadFromMemory;
+
+  Status = PeCoffLoaderGetImageInfo (&ImageContext);
+  if (EFI_ERROR (Status)) {
+    ASSERT_EFI_ERROR (Status);
+    DEBUG ((DEBUG_INFO, "%llx PeCoffLoaderGetImageInfo faile\n", (UINTN)Pe32Data));
+    return Status;
+  }
+
+  ImageContext.ImageAddress = (EFI_PHYSICAL_ADDRESS)(UINTN)Pe32Data;
+
+  //
+  // rebase the image
+  //
+  DEBUG ((DEBUG_INFO, " PeCoffLoaderRelocateImage %llx\n", (UINTN)ImageContext.ImageAddress));
+  Status = PeCoffLoaderRelocateImage (&ImageContext);
+  DEBUG ((DEBUG_INFO, "%llx PeCoffLoaderRelocateImage Status:%r\n",  Status));
+  ASSERT_EFI_ERROR (Status);
+
+  return Status;
+}
+
+VOID
+RebaseFspI (
+  UINT64             PcdFspIBaseAddress
+  )
+{
+
+  EFI_STATUS                         Status;
+  EFI_FIRMWARE_VOLUME_HEADER         *FwVolHeader;
+  EFI_FFS_FILE_HEADER                *FileHeader;
+
+  FwVolHeader = (EFI_FIRMWARE_VOLUME_HEADER *) (UINTN)PcdFspIBaseAddress;
+  FileHeader = NULL;
+  do {
+    Status = FfsFindNextFile (EFI_FV_FILETYPE_SECURITY_CORE, FwVolHeader, &FileHeader);
+    DEBUG ((DEBUG_INFO, "Find sec data - 0x%x\n", (UINTN)FileHeader));
+    if (!EFI_ERROR (Status)) {
+      DEBUG ((DEBUG_INFO, "Find sec data - 0x%x\n", (UINTN)FileHeader));
+      RebasePeTeFromFfs(FileHeader);
+    }
+  } while (!EFI_ERROR (Status));
+  FileHeader = NULL;
+  do {
+    Status = FfsFindNextFile (EFI_FV_FILETYPE_PEI_CORE, FwVolHeader, &FileHeader);
+
+    if (!EFI_ERROR (Status)) {
+      DEBUG ((DEBUG_INFO, "Find pei data - 0x%x\n", (UINTN)FileHeader));
+      RebasePeTeFromFfs(FileHeader);
+    }
+  } while (!EFI_ERROR (Status));
+}
+
 /**
   Call FspSmmInit API.
 
@@ -47,6 +122,7 @@ FspiWrapperInitApiMode (
   VOID               *FspHobListPtr;
   VOID               *FspiUpdDataPtr;
   UINTN              *SourceData;
+  VOID               *BaseAddress;
 
   DEBUG ((DEBUG_INFO, "PeiFspSmmInit enter\n"));
 
@@ -58,6 +134,21 @@ FspiWrapperInitApiMode (
   if (FspiHeaderPtr == NULL) {
     return EFI_DEVICE_ERROR;
   }
+
+  if (!FeaturePcdGet (PcdFspNeedRebase)) {
+    ASSERT(FspiHeaderPtr->ImageBase == PcdGet32 (PcdFspiBaseAddress));
+  } else {
+    if (FspiHeaderPtr->ImageBase != PcdGet32 (PcdFspiBaseAddress)) {
+      BaseAddress = AllocatePages (EFI_SIZE_TO_PAGES (FspiHeaderPtr->ImageSize));
+      CopyMem (BaseAddress, (VOID *)(UINTN)PcdGet32 (PcdFspiBaseAddress), FspiHeaderPtr->ImageSize);
+      PcdSet32S (PcdFspiBaseAddress,(UINT32) (UINTN)BaseAddress);
+
+      FspiHeaderPtr = (FSP_INFO_HEADER *)FspFindFspHeader (PcdGet32 (PcdFspiBaseAddress));
+      FspiHeaderPtr->ImageBase = (UINT32)(UINTN)BaseAddress;
+      RebaseFspS (PcdGet32 (PcdFspiBaseAddress));
+    }
+  }
+
 
   if ((PcdGet64 (PcdFspiUpdDataAddress) == 0) && (FspiHeaderPtr->CfgRegionSize != 0) && (FspiHeaderPtr->CfgRegionOffset != 0)) {
     //

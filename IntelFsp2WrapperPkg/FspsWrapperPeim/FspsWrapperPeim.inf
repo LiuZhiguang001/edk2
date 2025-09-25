@@ -46,6 +46,8 @@
   FspWrapperApiTestLib
   FspMeasurementLib
   FspWrapperMultiPhaseProcessLib
+  PeCoffLib
+  FvLib
 
 [Packages]
   MdePkg/MdePkg.dec
@@ -54,6 +56,7 @@
   SecurityPkg/SecurityPkg.dec
   IntelFsp2Pkg/IntelFsp2Pkg.dec
   IntelFsp2WrapperPkg/IntelFsp2WrapperPkg.dec
+  StandaloneMmPkg/StandaloneMmPkg.dec
 
 [Ppis]
   gTopOfTemporaryRamPpiGuid                              ## PRODUCES
@@ -70,6 +73,7 @@
   gIntelFsp2WrapperTokenSpaceGuid.PcdFspModeSelection      ## CONSUMES
   gIntelFsp2WrapperTokenSpaceGuid.PcdFspMeasurementConfig  ## CONSUMES
   gIntelFsp2WrapperTokenSpaceGuid.PcdFspsUpdDataAddress64  ## CONSUMES
+  gIntelFsp2WrapperTokenSpaceGuid.PcdFspNeedRebase
 
 [Guids]
   gFspHobGuid                           ## CONSUMES ## HOB
